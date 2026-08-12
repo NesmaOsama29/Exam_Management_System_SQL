@@ -13,6 +13,12 @@ An end-to-end relational database solution designed to manage academic instituti
 
 ## Key Features & Database Architecture
 
+## Entity Relationship Diagram (ERD)
+
+![Exam Management System ERD](ERD_Diagram.drawio.png)
+
+
+
 ### 1. Relational Schema & Data Integrity
 * **Core Entities:** `Department`, `Student`, `Instructor`, `Course`, `StudentCourse`, `Topic`, `Exam`, `Questions`, `Choices`, `StudentExam`, `StudentAnswer`.
 * **Foreign Key Actions:** Enforces `ON DELETE CASCADE` and `ON DELETE SET NULL` constraints to ensure referential integrity across related records.
