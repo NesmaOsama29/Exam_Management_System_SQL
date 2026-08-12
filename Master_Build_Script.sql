@@ -1,3 +1,4 @@
+
 -- ============================================================================
 -- Database Script: ExamManagementDB (Master Script)
 -- Author: Nesma Osama
@@ -362,7 +363,7 @@ INCLUDE (Question_ID, SelectedChoiceId);
 GO
 
 -- ============================================================================
--- SECTION 6: INITIAL SEED DATA
+-- SECTION 6: INITIAL SEED DATA (SCHEMA & SETUP ONLY)
 -- ============================================================================
 
 -- 1. Insert Departments
@@ -373,7 +374,11 @@ INSERT INTO Department (Dept_Name) VALUES
 -- 2. Insert Students
 INSERT INTO Student (stud_Fname, Stud_Lname, Email, stud_password, Dept_Id) VALUES 
 ('Ahmed', 'Ali', 'ahmed@example.com', '123456', 1),
-('Sara', 'Mahmoud', 'sara@example.com', '123456', 2);
+('Sara', 'Mahmoud', 'sara@example.com', '123456', 2),
+('Mona', 'Hassan', 'mona@example.com', '111', 1),
+('Youssef', 'Tarek', 'youssef@example.com', '123', 1),
+('Nour', 'Adel', 'nour@example.com', '456', 1),
+('Hoda', 'Samir', 'hoda@example.com', '789', 1);
 
 -- 3. Insert Instructors
 INSERT INTO Instructor (Inst_Fname, Inst_Lname, Email, Dept_ID) VALUES 
@@ -383,49 +388,61 @@ INSERT INTO Instructor (Inst_Fname, Inst_Lname, Email, Dept_ID) VALUES
 -- 4. Insert Courses
 INSERT INTO Course (course_name, course_Description, Dept_Id, Inst_Id) VALUES 
 ('Database Systems', 'Introduction to SQL Server and Relational Databases', 1, 1),
-('Programming C#', 'Object-Oriented Programming using C#', 1, 2);
+('Programming C#', 'Object-Oriented Programming using C#', 1, 2),
+('Algorithm Analysis', 'Design and Analysis of Algorithms', 1, 1);
 
 -- 5. Insert Student-Course Enrollments
 INSERT INTO StudentCourse (Stud_Id, Course_Id, Enrolment_Date) VALUES 
 (1, 1, GETDATE()),
 (2, 1, GETDATE()),
-(1, 2, GETDATE());
+(3, 1, GETDATE()),
+(1, 2, GETDATE()),
+(4, 3, GETDATE()),
+(5, 3, GETDATE()),
+(6, 3, GETDATE());
 
 -- 6. Insert Topics
 INSERT INTO Topic (Topic_Name, Course_Id) VALUES 
 ('SQL Fundamentals', 1),
-('Stored Procedures & Views', 1);
+('Stored Procedures & Views', 1),
+('Asymptotic Complexity & Recurrences', 3);
 
--- 7. Insert Sample Exam
+-- 7. Insert Exams
 INSERT INTO Exam (Exam_Name, Duration, Mark, NumberOfQuestions, Course_Id, Inst_Id) VALUES 
-('Database Midterm Exam', 60, 100.00, 2, 1, 1);
+('Database Midterm Exam', 60, 100.00, 2, 1, 1),
+('Database Final Exam', 60, 100.00, 20, 1, 1),
+('Algorithm Midterm Exam', 60, 50.00, 10, 3, 1),
+('Algorithm Final Exam', 90, 100.00, 25, 3, 1);
 
--- 8. Insert Questions
+-- 8. Insert Questions for Exam 1 (Database Midterm Exam)
 INSERT INTO Questions (Question_Text, Exam_Id) VALUES 
 ('What does DDL stand for in SQL?', 1),
 ('Which statement is used to fetch data from a table?', 1);
 
--- 9. Insert Question Choices
+-- 9. Insert Question Choices for Exam 1
 INSERT INTO Choices (Choice_Text, IsCorrect, Question_ID) VALUES 
 ('Data Definition Language', 1, 1),
 ('Data Description Language', 0, 1),
 ('Data Design Language', 0, 1),
-('Data Distribution Language', 0, 1);
-
-INSERT INTO Choices (Choice_Text, IsCorrect, Question_ID) VALUES 
+('Data Distribution Language', 0, 1),
 ('INSERT', 0, 2),
 ('SELECT', 1, 2),
 ('UPDATE', 0, 2),
 ('DELETE', 0, 2);
 
--- 10. Insert Student Exam Session
-INSERT INTO StudentExam (Stud_id, Exam_Id, Start_Time, submittime, Score, Status) VALUES 
-(1, 1, GETDATE(), GETDATE(), 100.00, 'Completed');
+-- 10. Insert Questions for Exam 2 (Database Final Exam)
+INSERT INTO Questions (Question_Text, Exam_Id) VALUES 
+('Which SQL keyword is used to sort the result-set?', 2),
+('What is the default sort order for ORDER BY clause?', 2);
 
--- 11. Insert Student Answers
-INSERT INTO StudentAnswer (StudentExamId, Question_ID, SelectedChoiceId) VALUES 
-(1, 1, 1),
-(1, 2, 6);
+-- 11. Insert Question Choices for Exam 2
+INSERT INTO Choices (Choice_Text, IsCorrect, Question_ID) VALUES 
+('ORDER BY', 1, 3),
+('SORT BY', 0, 3),
+('GROUP BY', 0, 3),
+('ARRANGE BY', 0, 3),
+('Ascending (ASC)', 1, 4),
+('Descending (DESC)', 0, 4);
 GO
 
 -- ============================================================================
