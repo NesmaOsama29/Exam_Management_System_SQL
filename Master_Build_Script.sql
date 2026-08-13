@@ -1,18 +1,19 @@
 -- ============================================================================
--- Database Script: ExamManagementDB (Master Script)
+-- Database Script: ExamManagementDB (Master Setup Script)
 -- Author: Nesma Osama
--- Description: Full Database Schema, Relations, Seed Data, Stored Procedures,
---              Views, Audit Triggers, Performance Indexes, and Test Workflows.
+-- Description: Complete SQL Schema, Relational Integrity Constraints, 
+--              Stored Procedures, Views, Audit Triggers, Indexes, 
+--              and Complete Seed Data with Exact Student IDs.
 -- ============================================================================
 
 -- ============================================================================
--- SECTION 1: DATABASE CREATION
+-- SECTION 1: DATABASE CREATION & CLEANUP
 -- ============================================================================
 IF EXISTS (SELECT name FROM sys.databases WHERE name = N'ExamManagementDB')
 BEGIN
     ALTER DATABASE ExamManagementDB SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
     DROP DATABASE ExamManagementDB;
-END
+END;
 GO
 
 CREATE DATABASE ExamManagementDB;
@@ -22,7 +23,7 @@ USE ExamManagementDB;
 GO
 
 -- ============================================================================
--- SECTION 2: TABLES CREATION & CONSTRAINTS
+-- SECTION 2: TABLES CREATION & CONSTRAINTS (11 Tables)
 -- ============================================================================
 
 CREATE TABLE Department (
@@ -144,7 +145,7 @@ BEGIN
     END
     ELSE
     BEGIN
-        INSERT INTO Student (stud_Fname, Stud_Lname, Email, stud_password, Dept_Id)
+        INSERT INTO Student (stud_Fname, Stud_Lname, Email, Stud_password, Dept_Id)
         VALUES (@stud_fname, @stud_Lname, @Email, @Password, @dept_id);
         
         SELECT SCOPE_IDENTITY() AS NewStudentID;
@@ -220,38 +221,6 @@ BEGIN
 END;
 GO
 
-CREATE PROC sp_CorrectAndGradeExam
-    @studentExamId INT
-AS
-BEGIN
-    SET NOCOUNT ON;
-    DECLARE @FinalScore DECIMAL(5,2), 
-            @CorrectCount INT, 
-            @QuestionMark DECIMAL(5,2);
-
-    SELECT @QuestionMark = (CAST(e.Mark AS DECIMAL(5,2)) / e.NumberOfQuestions)
-    FROM Exam e
-    JOIN StudentExam se ON e.Exam_ID = se.Exam_Id
-    WHERE se.StudentExamId = @studentExamId;
-
-    SELECT @CorrectCount = COUNT(*)
-    FROM StudentAnswer sa
-    JOIN Choices c ON sa.SelectedChoiceId = c.choice_id
-    WHERE sa.StudentExamId = @studentExamId 
-      AND c.IsCorrect = 1;
-
-    SET @FinalScore = @CorrectCount * @QuestionMark;
-
-    UPDATE StudentExam
-    SET Score = @FinalScore,
-        Status = 'Completed',
-        submittime = GETDATE()
-    WHERE StudentExamId = @studentExamId;
-
-    SELECT @FinalScore AS FinalScore;
-END;
-GO
-
 CREATE PROC sp_SubmitExamSafe
     @studentExamId INT
 AS
@@ -260,22 +229,33 @@ BEGIN
     BEGIN TRY
         BEGIN TRANSACTION;
 
-        DECLARE @FinalScore DECIMAL(5,2), 
-                @CorrectCount INT, 
-                @QuestionMark DECIMAL(5,2);
+        DECLARE @ExamID INT;
+        DECLARE @TotalQuestions INT = 0;
+        DECLARE @CorrectQuestions INT = 0;
+        DECLARE @MaxMark DECIMAL(5,2) = 100.00;
+        DECLARE @FinalScore DECIMAL(5,2) = 0.00;
 
-        SELECT @QuestionMark = (CAST(e.Mark AS DECIMAL(5,2)) / e.NumberOfQuestions)
-        FROM Exam e
-        JOIN StudentExam se ON e.Exam_ID = se.Exam_Id
+        SELECT 
+            @ExamID = se.Exam_Id,
+            @MaxMark = ISNULL(e.Mark, 100.00)
+        FROM StudentExam se
+        INNER JOIN Exam e ON se.Exam_Id = e.Exam_ID
         WHERE se.StudentExamId = @studentExamId;
 
-        SELECT @CorrectCount = COUNT(*)
+        SELECT @TotalQuestions = COUNT(*) 
+        FROM Questions 
+        WHERE Exam_Id = @ExamID;
+
+        SELECT @CorrectQuestions = COUNT(DISTINCT sa.Question_ID)
         FROM StudentAnswer sa
-        JOIN Choices c ON sa.SelectedChoiceId = c.choice_id
+        INNER JOIN Choices c ON sa.SelectedChoiceId = c.choice_id
         WHERE sa.StudentExamId = @studentExamId 
           AND c.IsCorrect = 1;
 
-        SET @FinalScore = @CorrectCount * @QuestionMark;
+        IF @TotalQuestions > 0
+        BEGIN
+            SET @FinalScore = (CAST(@CorrectQuestions AS DECIMAL(5,2)) / @TotalQuestions) * @MaxMark;
+        END
 
         UPDATE StudentExam
         SET Score = @FinalScore,
@@ -311,10 +291,10 @@ SELECT
     se.Score,
     e.Mark AS TotalMark,
     se.Status,
-    se.submittime AS Submition_Time
-FROM student s 
+    se.submittime AS Submission_Time
+FROM Student s 
 INNER JOIN StudentExam se ON s.Stud_Id = se.Stud_id 
-INNER JOIN exam e ON se.Exam_Id = e.Exam_ID 
+INNER JOIN Exam e ON se.Exam_Id = e.Exam_ID 
 INNER JOIN Course c ON e.Course_Id = c.course_id;
 GO
 
@@ -324,11 +304,11 @@ SELECT
     c.course_id,
     c.course_name AS CourseName,
     COUNT(DISTINCT e.Exam_ID) AS Total_Exams,
-    COUNT(se.stud_id) AS Total_Student_Attempts,
-    MAX(se.score) AS [Highest Score],
-    AVG(se.score) AS [Average Score]
-FROM course c
-LEFT JOIN exam e ON c.course_id = e.Course_Id 
+    COUNT(se.Stud_id) AS Total_Student_Attempts,
+    MAX(se.Score) AS [Highest Score],
+    AVG(se.Score) AS [Average Score]
+FROM Course c
+LEFT JOIN Exam e ON c.course_id = e.Course_Id 
 LEFT JOIN StudentExam se ON se.Exam_Id = e.Exam_ID  
 GROUP BY c.course_id, c.course_name;
 GO
@@ -338,15 +318,15 @@ GO
 -- ============================================================================
 
 CREATE TRIGGER trg_AuditScoreChange
-ON studentExam
+ON StudentExam
 AFTER UPDATE
 AS
 BEGIN
     SET NOCOUNT ON;
-    IF UPDATE(score)
+    IF UPDATE(Score)
     BEGIN
         IF EXISTS (
-            SELECT status FROM deleted WHERE status = 'Completed'
+            SELECT Status FROM deleted WHERE Status = 'Completed'
         )
         BEGIN
             RAISERROR('Cannot modify scores for completed exams!', 16, 1);
@@ -362,7 +342,7 @@ INCLUDE (Question_ID, SelectedChoiceId);
 GO
 
 -- ============================================================================
--- SECTION 6: INITIAL SEED DATA (SCHEMA & SETUP ONLY)
+-- SECTION 6: INITIAL SEED DATA
 -- ============================================================================
 
 -- 1. Insert Departments
@@ -370,14 +350,20 @@ INSERT INTO Department (Dept_Name) VALUES
 ('Computer Science'),
 ('Information Systems');
 
--- 2. Insert Students
-INSERT INTO Student (stud_Fname, Stud_Lname, Email, stud_password, Dept_Id) VALUES 
-('Ahmed', 'Ali', 'ahmed@example.com', '123456', 1),
-('Sara', 'Mahmoud', 'sara@example.com', '123456', 2),
-('Mona', 'Hassan', 'mona@example.com', '111', 1),
-('Youssef', 'Tarek', 'youssef@example.com', '123', 1),
-('Nour', 'Adel', 'nour@example.com', '456', 1),
-('Hoda', 'Samir', 'hoda@example.com', '789', 1);
+-- 2. Insert Students (Using Exact IDs & Data from Image)
+SET IDENTITY_INSERT Student ON;
+
+INSERT INTO Student (Stud_Id, stud_Fname, Stud_Lname, Email, Stud_password, Dept_Id) VALUES 
+(1,    'Ahmed',   'Ali',     'ahmed@example.com',       '123456',  NULL),
+(2,    'Sara',    'Mahmoud', 'sara@example.com',        '123456',  2),
+(6,    'Nesma',   'Osama',   'nesma_test2@test.com',    'pass123', 1),
+(1006, 'Mona',    'Hassan',  'mona@email.com',          '111',     NULL),
+(1007, 'Youssef', 'Tarek',   'youssef@email.com',       '123',     NULL),
+(1008, 'Nour',    'Adel',    'nour@email.com',          '456',     NULL),
+(1009, 'Hoda',    'Samir',   'hoda@email.com',          '789',     NULL),
+(1011, 'Omar',    'Hassan',  'omar.hassan@example.com', '123456',  NULL);
+
+SET IDENTITY_INSERT Student OFF;
 
 -- 3. Insert Instructors
 INSERT INTO Instructor (Inst_Fname, Inst_Lname, Email, Dept_ID) VALUES 
@@ -392,13 +378,14 @@ INSERT INTO Course (course_name, course_Description, Dept_Id, Inst_Id) VALUES
 
 -- 5. Insert Student-Course Enrollments
 INSERT INTO StudentCourse (Stud_Id, Course_Id, Enrolment_Date) VALUES 
-(1, 1, GETDATE()),
-(2, 1, GETDATE()),
-(3, 1, GETDATE()),
-(1, 2, GETDATE()),
-(4, 3, GETDATE()),
-(5, 3, GETDATE()),
-(6, 3, GETDATE());
+(6,    1, GETDATE()), 
+(1,    1, GETDATE()), 
+(2,    1, GETDATE()), 
+(6,    2, GETDATE()), 
+(1006, 3, GETDATE()),
+(1007, 3, GETDATE()),
+(1008, 3, GETDATE()),
+(1011, 3, GETDATE()); 
 
 -- 6. Insert Topics
 INSERT INTO Topic (Topic_Name, Course_Id) VALUES 
@@ -406,98 +393,130 @@ INSERT INTO Topic (Topic_Name, Course_Id) VALUES
 ('Stored Procedures & Views', 1),
 ('Asymptotic Complexity & Recurrences', 3);
 
--- 7. Insert Exams
-INSERT INTO Exam (Exam_Name, Duration, Mark, NumberOfQuestions, Course_Id, Inst_Id) VALUES 
-('Database Midterm Exam', 60, 100.00, 2, 1, 1),
-('Database Final Exam', 60, 100.00, 20, 1, 1),
-('Algorithm Midterm Exam', 60, 50.00, 10, 3, 1),
-('Algorithm Final Exam', 90, 100.00, 25, 3, 1);
+-------------------------------------------------------------------------------
+-- EXAM 1: Database Midterm Exam (10 Questions / 40 Choices)
+-------------------------------------------------------------------------------
+INSERT INTO Exam (Exam_Name, Duration, Mark, NumberOfQuestions, Course_Id, Inst_Id) 
+VALUES ('Database Midterm Exam', 60, 100.00, 10, 1, 1);
 
--- 8. Insert Questions for Exam 1 (Database Midterm Exam)
-INSERT INTO Questions (Question_Text, Exam_Id) VALUES 
-('What does DDL stand for in SQL?', 1),
-('Which statement is used to fetch data from a table?', 1);
+DECLARE @DbExamID INT = SCOPE_IDENTITY();
+DECLARE @QID INT;
 
--- 9. Insert Question Choices for Exam 1
+-- Q1
+INSERT INTO Questions (Question_Text, Exam_Id) VALUES ('What does DDL stand for in SQL?', @DbExamID);
+SET @QID = SCOPE_IDENTITY();
 INSERT INTO Choices (Choice_Text, IsCorrect, Question_ID) VALUES 
-('Data Definition Language', 1, 1),
-('Data Description Language', 0, 1),
-('Data Design Language', 0, 1),
-('Data Distribution Language', 0, 1),
-('INSERT', 0, 2),
-('SELECT', 1, 2),
-('UPDATE', 0, 2),
-('DELETE', 0, 2);
+('Data Definition Language', 1, @QID), ('Data Description Language', 0, @QID),
+('Data Design Language', 0, @QID), ('Data Distribution Language', 0, @QID);
 
--- 10. Insert Questions for Exam 2 (Database Final Exam)
-INSERT INTO Questions (Question_Text, Exam_Id) VALUES 
-('Which SQL keyword is used to sort the result-set?', 2),
-('What is the default sort order for ORDER BY clause?', 2);
-
--- 11. Insert Question Choices for Exam 2
+-- Q2
+INSERT INTO Questions (Question_Text, Exam_Id) VALUES ('Which statement is used to fetch data from a table?', @DbExamID);
+SET @QID = SCOPE_IDENTITY();
 INSERT INTO Choices (Choice_Text, IsCorrect, Question_ID) VALUES 
-('ORDER BY', 1, 3),
-('SORT BY', 0, 3),
-('GROUP BY', 0, 3),
-('ARRANGE BY', 0, 3),
-('Ascending (ASC)', 1, 4),
-('Descending (DESC)', 0, 4);
-GO
+('INSERT', 0, @QID), ('SELECT', 1, @QID), ('UPDATE', 0, @QID), ('DELETE', 0, @QID);
 
--- ============================================================================
--- SECTION 7: AUTOMATED DYNAMIC TEST WORKFLOW
--- ============================================================================
-
--- Dynamic Test Setup
-INSERT INTO Department (Dept_Name) VALUES ('Computer Science');
-DECLARE @DeptId INT = SCOPE_IDENTITY();
-
-INSERT INTO Course (course_name, Dept_Id) VALUES ('Database Systems', @DeptId);
-DECLARE @CourseId INT = SCOPE_IDENTITY();
-
-INSERT INTO Exam (Exam_Name, Mark, NumberOfQuestions, Duration, Course_Id) VALUES ('Database Midterm', 100, 2, 60, @CourseId);
-DECLARE @ExamId INT = SCOPE_IDENTITY();
-
-INSERT INTO Questions (Question_Text, Exam_Id) VALUES ('What does SQL stand for?', @ExamId);
-DECLARE @Q1_Id INT = SCOPE_IDENTITY();
-
+-- Q3
+INSERT INTO Questions (Question_Text, Exam_Id) VALUES ('Which clause is used to filter group records in SQL?', @DbExamID);
+SET @QID = SCOPE_IDENTITY();
 INSERT INTO Choices (Choice_Text, IsCorrect, Question_ID) VALUES 
-('Structured Query Language', 1, @Q1_Id),
-('Simple Question Language', 0, @Q1_Id);
+('HAVING', 1, @QID), ('WHERE', 0, @QID), ('GROUP BY', 0, @QID), ('ORDER BY', 0, @QID);
 
-INSERT INTO Questions (Question_Text, Exam_Id) VALUES ('Which clause is used to filter records?', @ExamId);
-DECLARE @Q2_Id INT = SCOPE_IDENTITY();
-
+-- Q4
+INSERT INTO Questions (Question_Text, Exam_Id) VALUES ('Which command is used to remove all records from a table without logging individual row deletions?', @DbExamID);
+SET @QID = SCOPE_IDENTITY();
 INSERT INTO Choices (Choice_Text, IsCorrect, Question_ID) VALUES 
-('WHERE', 1, @Q2_Id),
-('GROUP BY', 0, @Q2_Id);
+('TRUNCATE', 1, @QID), ('DELETE', 0, @QID), ('DROP', 0, @QID), ('REMOVE', 0, @QID);
 
-EXEC sp_AddStudent 'Nesma', 'Osama', 'nesma_test2@test.com', 'pass123', @DeptId;
+-- Q5
+INSERT INTO Questions (Question_Text, Exam_Id) VALUES ('What does the primary key constraint enforce in a table?', @DbExamID);
+SET @QID = SCOPE_IDENTITY();
+INSERT INTO Choices (Choice_Text, IsCorrect, Question_ID) VALUES 
+('Uniqueness and Non-nullability', 1, @QID), ('Foreign Key relationships only', 0, @QID),
+('Auto-incrementing values only', 0, @QID), ('Default values for columns', 0, @QID);
 
-SELECT 
-    @ExamId AS GeneratedExamID, 
-    @Q1_Id AS Question1_ID, 
-    @Q2_Id AS Question2_ID;
-GO
+-- Q6
+INSERT INTO Questions (Question_Text, Exam_Id) VALUES ('Which SQL join returns all records when there is a match in either left or right table?', @DbExamID);
+SET @QID = SCOPE_IDENTITY();
+INSERT INTO Choices (Choice_Text, IsCorrect, Question_ID) VALUES 
+('FULL OUTER JOIN', 1, @QID), ('INNER JOIN', 0, @QID), ('LEFT JOIN', 0, @QID), ('RIGHT JOIN', 0, @QID);
 
--- Automated Exam Execution
-DECLARE @StudId INT = 6;
-DECLARE @ExamId INT;
-DECLARE @Q1_Id INT, @Q2_Id INT;
-DECLARE @CorrectChoice_Q1 INT, @WrongChoice_Q2 INT;
-DECLARE @StudentExamId INT;
+-- Q7
+INSERT INTO Questions (Question_Text, Exam_Id) VALUES ('Which aggregate function returns the average value of a numeric column?', @DbExamID);
+SET @QID = SCOPE_IDENTITY();
+INSERT INTO Choices (Choice_Text, IsCorrect, Question_ID) VALUES 
+('AVG()', 1, @QID), ('SUM()', 0, @QID), ('COUNT()', 0, @QID), ('MEAN()', 0, @QID);
 
-SELECT TOP 1 @ExamId = Exam_ID FROM Exam ORDER BY Exam_ID DESC;
-SELECT @Q1_Id = MIN(Question_Id), @Q2_Id = MAX(Question_Id) FROM Questions WHERE Exam_Id = @ExamId;
-SELECT TOP 1 @CorrectChoice_Q1 = choice_id FROM Choices WHERE Question_ID = @Q1_Id AND IsCorrect = 1;
-SELECT TOP 1 @WrongChoice_Q2 = choice_id FROM Choices WHERE Question_ID = @Q2_Id AND IsCorrect = 0;
+-- Q8
+INSERT INTO Questions (Question_Text, Exam_Id) VALUES ('What is the default sorting order of ORDER BY clause in SQL?', @DbExamID);
+SET @QID = SCOPE_IDENTITY();
+INSERT INTO Choices (Choice_Text, IsCorrect, Question_ID) VALUES 
+('ASC (Ascending)', 1, @QID), ('DESC (Descending)', 0, @QID), ('Random', 0, @QID), ('Unsorted', 0, @QID);
 
-EXEC sp_StartExam @stud_id = @StudId, @exam_id = @ExamId;
+-- Q9
+INSERT INTO Questions (Question_Text, Exam_Id) VALUES ('Which statement is used to modify existing records in a table?', @DbExamID);
+SET @QID = SCOPE_IDENTITY();
+INSERT INTO Choices (Choice_Text, IsCorrect, Question_ID) VALUES 
+('UPDATE', 1, @QID), ('MODIFY', 0, @QID), ('ALTER', 0, @QID), ('CHANGE', 0, @QID);
 
-SELECT TOP 1 @StudentExamId = StudentExamId FROM StudentExam WHERE Stud_id = @StudId ORDER BY StudentExamId DESC;
+-- Q10
+INSERT INTO Questions (Question_Text, Exam_Id) VALUES ('Which SQL constraint ensures that all values in a column are unique?', @DbExamID);
+SET @QID = SCOPE_IDENTITY();
+INSERT INTO Choices (Choice_Text, IsCorrect, Question_ID) VALUES 
+('UNIQUE', 1, @QID), ('CHECK', 0, @QID), ('PRIMARY KEY only', 0, @QID), ('DISTINCT', 0, @QID);
 
-EXEC sp_SaveStudentAnswer @StudentExamId, @Q1_Id, @CorrectChoice_Q1;
-EXEC sp_SaveStudentAnswer @StudentExamId, @Q2_Id, @WrongChoice_Q2;
+-------------------------------------------------------------------------------
+-- EXAM 2: Algorithm Analysis Final Exam (8 Questions / 32 Choices)
+-------------------------------------------------------------------------------
+INSERT INTO Exam (Exam_Name, Duration, Mark, NumberOfQuestions, Course_Id, Inst_Id) 
+VALUES ('Algorithm Final Exam', 90, 100.00, 8, 3, 1);
 
-EXEC sp_SubmitExamSafe @studentExamId = @StudentExamId;
+DECLARE @AlgoExamID INT = SCOPE_IDENTITY();
+
+-- Q1
+INSERT INTO Questions (Question_Text, Exam_Id) VALUES ('What is the average time complexity of Quick Sort?', @AlgoExamID);
+SET @QID = SCOPE_IDENTITY();
+INSERT INTO Choices (Choice_Text, IsCorrect, Question_ID) VALUES 
+('O(N^2)', 0, @QID), ('O(N log N)', 1, @QID), ('O(N)', 0, @QID), ('O(1)', 0, @QID);
+
+-- Q2
+INSERT INTO Questions (Question_Text, Exam_Id) VALUES ('What is the worst-case time complexity of Binary Search on a sorted array?', @AlgoExamID);
+SET @QID = SCOPE_IDENTITY();
+INSERT INTO Choices (Choice_Text, IsCorrect, Question_ID) VALUES 
+('O(1)', 0, @QID), ('O(N)', 0, @QID), ('O(log N)', 1, @QID), ('O(N log N)', 0, @QID);
+
+-- Q3
+INSERT INTO Questions (Question_Text, Exam_Id) VALUES ('Which notation is used to describe the upper bound of an algorithm execution time?', @AlgoExamID);
+SET @QID = SCOPE_IDENTITY();
+INSERT INTO Choices (Choice_Text, IsCorrect, Question_ID) VALUES 
+('Big-O Notation', 1, @QID), ('Big-Omega Notation', 0, @QID), ('Big-Theta Notation', 0, @QID), ('Little-o Notation', 0, @QID);
+
+-- Q4
+INSERT INTO Questions (Question_Text, Exam_Id) VALUES ('What is the worst-case time complexity of Merge Sort?', @AlgoExamID);
+SET @QID = SCOPE_IDENTITY();
+INSERT INTO Choices (Choice_Text, IsCorrect, Question_ID) VALUES 
+('O(N^2)', 0, @QID), ('O(N log N)', 1, @QID), ('O(N)', 0, @QID), ('O(log N)', 0, @QID);
+
+-- Q5
+INSERT INTO Questions (Question_Text, Exam_Id) VALUES ('Which algorithmic strategy solves subproblems only once and stores their solutions in a table?', @AlgoExamID);
+SET @QID = SCOPE_IDENTITY();
+INSERT INTO Choices (Choice_Text, IsCorrect, Question_ID) VALUES 
+('Greedy Approach', 0, @QID), ('Divide and Conquer', 0, @QID), ('Dynamic Programming', 1, @QID), ('Backtracking', 0, @QID);
+
+-- Q6
+INSERT INTO Questions (Question_Text, Exam_Id) VALUES ('What is the auxiliary space complexity of Merge Sort?', @AlgoExamID);
+SET @QID = SCOPE_IDENTITY();
+INSERT INTO Choices (Choice_Text, IsCorrect, Question_ID) VALUES 
+('O(1)', 0, @QID), ('O(log N)', 0, @QID), ('O(N)', 1, @QID), ('O(N log N)', 0, @QID);
+
+-- Q7
+INSERT INTO Questions (Question_Text, Exam_Id) VALUES ('What is the best-case time complexity of Bubble Sort when optimized with a swapped flag?', @AlgoExamID);
+SET @QID = SCOPE_IDENTITY();
+INSERT INTO Choices (Choice_Text, IsCorrect, Question_ID) VALUES 
+('O(N)', 1, @QID), ('O(N^2)', 0, @QID), ('O(log N)', 0, @QID), ('O(1)', 0, @QID);
+
+-- Q8
+INSERT INTO Questions (Question_Text, Exam_Id) VALUES ('What is the time complexity of searching for an element in an unsorted array of size N?', @AlgoExamID);
+SET @QID = SCOPE_IDENTITY();
+INSERT INTO Choices (Choice_Text, IsCorrect, Question_ID) VALUES 
+('O(1)', 0, @QID), ('O(log N)', 0, @QID), ('O(N)', 1, @QID), ('O(N log N)', 0, @QID);
 GO
