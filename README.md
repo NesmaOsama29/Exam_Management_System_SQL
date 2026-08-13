@@ -58,6 +58,7 @@ An end-to-end relational database solution designed to manage academic instituti
 
 * ---
 
+---
 
 ## 🖥️ System Screenshots & UI Showcase
 
@@ -72,8 +73,11 @@ A visual walkthrough of the Exam Management System user interfaces and reporting
 ### 3. Live Exam Questions
 ![Exam Questions](ScreenShots/ExamQuestions.png)
 
-### 4. Student Result Report
+### 4. Exam Submission Process
+![Submit Exam](ScreenShots/SubmitExam.png)
+
+### 5. Student Result Report
 ![Result Report](ScreenShots/ResultReport.png)
 
-### 5. Course & Exam Statistics
+### 6. Course & Exam Statistics
 ![Exam Statistics](ScreenShots/ExamStatistics.png)
