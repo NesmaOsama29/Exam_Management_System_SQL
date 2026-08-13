@@ -55,3 +55,27 @@ An end-to-end relational database solution designed to manage academic instituti
 * **Database Engine:** Microsoft SQL Server
 * **Language:** T-SQL (Transact-SQL)
 * **IDE:** SQL Server Management Studio (SSMS)
+
+* ---
+
+## 🖥️ System Screenshots & UI Showcase
+
+A visual walkthrough of the Exam Management System user interfaces and reporting modules:
+
+### 1. Start Exam Portal
+![Start Exam](ScreenShots/StartExam.png)
+
+### 2. Live Exam Questions
+![Exam Questions](ScreenShots/ExamQuestions.png)
+
+### 3. Exam Submission
+![Submit Exam](ScreenShots/SubmitExam.png)
+
+### 4. Course & Exam Statistics
+![Exam Statistics](ScreenShots/ExamStatistics.png)
+
+### 5. Report Dashboard
+![Report Screen](ScreenShots/ReportScreen.png)
+
+### 6. Student Result Report
+![Result Report](ScreenShots/ResultReport.png)
