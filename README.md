@@ -58,24 +58,22 @@ An end-to-end relational database solution designed to manage academic instituti
 
 * ---
 
+
 ## 🖥️ System Screenshots & UI Showcase
 
 A visual walkthrough of the Exam Management System user interfaces and reporting modules:
 
-### 1. Start Exam Portal
-![Start Exam](ScreenShots/StartExam.png)
-
-### 2. Live Exam Questions
-![Exam Questions](ScreenShots/ExamQuestions.png)
-
-### 3. Exam Submission
-![Submit Exam](ScreenShots/SubmitExam.png)
-
-### 4. Course & Exam Statistics
-![Exam Statistics](ScreenShots/ExamStatistics.png)
-
-### 5. Report Dashboard
+### 1. Report Dashboard
 ![Report Screen](ScreenShots/ReportScreen.png)
 
-### 6. Student Result Report
+### 2. Start Exam Portal
+![Start Exam](ScreenShots/StartExam.png)
+
+### 3. Live Exam Questions
+![Exam Questions](ScreenShots/ExamQuestions.png)
+
+### 4. Student Result Report
 ![Result Report](ScreenShots/ResultReport.png)
+
+### 5. Course & Exam Statistics
+![Exam Statistics](ScreenShots/ExamStatistics.png)
