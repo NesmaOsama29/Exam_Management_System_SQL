@@ -1,4 +1,3 @@
-
 -- ============================================================================
 -- Database Script: ExamManagementDB (Master Script)
 -- Author: Nesma Osama
